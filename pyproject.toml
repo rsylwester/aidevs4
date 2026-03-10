@@ -1,0 +1,73 @@
+[project]
+name = "aidevs4"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "langchain>=1.2",
+    "langchain-openai>=1.1",
+    "pydantic-settings>=2.13.1",
+]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "ruff>=0.15",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",       # pycodestyle + pyflakes
+    "I",                  # isort
+    "UP",                 # pyupgrade
+    "B",                  # bugbear
+    "SIM",                # simplify
+    "RUF",                # ruff-specific
+    "N",                  # pep8-naming
+    "ANN",                # annotations
+    "S",                  # bandit (security)
+    "C4",                 # comprehensions
+    "PIE",                # misc lint
+    "PERF",               # performance
+    "T20",                # print() detection
+    "ISC",                # implicit string concat
+    "DTZ",                # timezone-aware datetime
+    "RET",                # return patterns
+    "PTH",                # pathlib over os.path
+    "PT",                 # pytest style
+    "ARG",                # unused arguments
+    "EM",                 # exception messages
+    "TRY",                # exception handling
+    "TCH",                # TYPE_CHECKING imports
+    "FA",                 # future annotations
+]
+ignore = [
+    "ANN401",  # Any type allowed sometimes
+    "ISC001",  # conflicts with ruff formatter
+    "TRY003",  # long exception messages OK
+    "EM101",   # string literals in exceptions OK
+    "RET504",  # unnecessary assignment before return
+    "S101",    # assert is fine (we're not a library)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG", "ANN"]
+"main.py" = ["T20"]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["aidevs4"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+reportUnknownMemberType = "warning"
+reportUnknownArgumentType = "warning"
+reportUnknownVariableType = "warning"
+reportUnknownParameterType = "warning"
+reportUnknownLambdaType = "warning"
+reportMissingTypeStubs = "warning"

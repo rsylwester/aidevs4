@@ -1,0 +1,5 @@
+[tools]
+python = { version = "{{exec(command='cat .python-version')}}" }
+
+[settings]
+python.uv_venv_auto = true
