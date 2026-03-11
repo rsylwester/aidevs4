@@ -2,15 +2,28 @@
 
 from __future__ import annotations
 
+import logging
+from typing import Any
+
 from langchain_openai import ChatOpenAI
 
+from lib.tracing import get_langfuse_handler
 from settings import settings
 
+logger = logging.getLogger(__name__)
 
-def get_llm(model: str = "openai/gpt-4o-mini") -> ChatOpenAI:
-    """Return a ChatOpenAI instance configured for OpenRouter."""
+
+def get_llm(model: str = "openai/gpt-4o-mini", *, callbacks: list[Any] | None = None) -> ChatOpenAI:
+    """Return a ChatOpenAI instance configured for OpenRouter with Langfuse tracing."""
+    all_callbacks: list[Any] = list(callbacks) if callbacks else []
+    try:
+        all_callbacks.append(get_langfuse_handler())
+    except Exception:
+        logger.debug("Langfuse handler not available, tracing disabled")
+
     return ChatOpenAI(
         model=model,
         api_key=settings.openrouter_api_key,  # type: ignore[arg-type]
         base_url="https://openrouter.ai/api/v1",
+        callbacks=all_callbacks or None,  # type: ignore[arg-type]
     )

@@ -43,6 +43,14 @@ add-dev *pkgs:
 task name:
     uv run python -m tasks.{{name}}
 
+# Start Langfuse stack
+up:
+    docker compose up -d
+
+# Stop Langfuse stack
+down:
+    docker compose down
+
 # Remove a dependency
 remove *pkgs:
     uv remove {{pkgs}}
