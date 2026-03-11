@@ -1,0 +1,9 @@
+keys:
+  - &primary age16m3dg5wvnaxj60wekf5xnpuzxnjw7v7ua4clyf6efurr57qqw93qq9wzs6
+  - &backup age1awmxsguks73w0fjhhztllvjvvg64uelntwtrlc60dpd5m8fa7past7zjgh
+creation_rules:
+  - path_regex: \.env$
+    key_groups:
+      - age:
+          - *primary
+          - *backup

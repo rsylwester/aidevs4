@@ -54,3 +54,11 @@ down:
 # Remove a dependency
 remove *pkgs:
     uv remove {{pkgs}}
+
+# Encrypt .env → .env.sops
+secrets-encrypt:
+    sops -e --input-type dotenv --output-type dotenv .env > .env.sops
+
+# Decrypt .env.sops → .env
+secrets-decrypt:
+    sops -d --input-type dotenv --output-type dotenv .env.sops > .env
