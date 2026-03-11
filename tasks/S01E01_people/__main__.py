@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from pathlib import Path
 
 from lib.hub import fetch_data, submit_answer
 from lib.logging import setup_logging
@@ -53,6 +54,12 @@ def run() -> None:
 
     logger.info("[bold cyan]Fetching %s from hub...[/]", DATA_FILE)
     raw_csv = fetch_data(DATA_FILE)
+
+    artifacts_dir = Path(__file__).parent / ".artifacts"
+    artifacts_dir.mkdir(exist_ok=True)
+    (artifacts_dir / DATA_FILE).write_text(raw_csv, encoding="utf-8")
+    logger.info("[dim]Saved %s to %s[/]", DATA_FILE, artifacts_dir / DATA_FILE)
+
     rows = _parse_csv(raw_csv)
     logger.info("[green]Parsed %d rows from CSV[/]", len(rows))
 

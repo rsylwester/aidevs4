@@ -21,6 +21,11 @@
 - **Line length**: 120 characters.
 - **Target**: Python 3.14.
 
+## Artifacts
+
+- **Required**: all task artifacts (downloaded data, API responses, generated files) must be saved to a `.artifacts/` subdirectory within the task folder (e.g. `tasks/S01E01_people/.artifacts/people.csv`).
+- `.artifacts/` is gitignored — never commit data files.
+
 ## LLM conventions
 
 - **LangChain + OpenRouter** for all LLM calls.

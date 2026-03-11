@@ -68,9 +68,9 @@ known-first-party = ["aidevs4"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
-reportUnknownMemberType = "warning"
-reportUnknownArgumentType = "warning"
-reportUnknownVariableType = "warning"
-reportUnknownParameterType = "warning"
-reportUnknownLambdaType = "warning"
-reportMissingTypeStubs = "warning"
+reportUnknownMemberType = "error"
+reportUnknownArgumentType = "error"
+reportUnknownVariableType = "error"
+reportUnknownParameterType = "error"
+reportUnknownLambdaType = "error"
+reportMissingTypeStubs = "error"

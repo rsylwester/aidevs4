@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 from pydantic import BaseModel
 
@@ -22,8 +23,7 @@ Available tags:
 - praca z pojazdami — mechanic, vehicle repair, automotive
 - praca fizyczna — construction, warehouse, cleaning, manual labour
 
-Return tags for every person. Use the exact tag names listed above.
-Respond with valid JSON matching this schema: {"results": [{"index": <int>, "tags": [<str>, ...]}]}\
+Return tags for every person. Use the exact tag names listed above.\
 """
 
 
@@ -45,14 +45,15 @@ def tag_jobs(jobs: list[tuple[int, str]]) -> list[PersonTags]:
     lines = [f"{idx}: {desc}" for idx, desc in jobs]
     user_msg = "\n".join(lines)
 
-    llm = get_llm()
-    response = llm.invoke(
-        [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_msg},
-        ],
-        response_format={"type": "json_object"},
+    llm = get_llm().with_structured_output(TaggingResult)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    result = cast(
+        "TaggingResult",
+        llm.invoke(
+            [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
+        ),
     )
-    result = TaggingResult.model_validate_json(response.content)  # type: ignore[arg-type]
     logger.info("Tagged %d jobs", len(result.results))
     return result.results
