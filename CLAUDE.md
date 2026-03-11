@@ -21,11 +21,23 @@
 - **Line length**: 120 characters.
 - **Target**: Python 3.14.
 
+## LLM conventions
+
+- **LangChain + OpenRouter** for all LLM calls.
+- Use `lib.llm.get_llm()` — never instantiate `ChatOpenAI` directly in tasks.
+- Use `.with_structured_output()` for typed LLM responses.
+
 ## Project structure
 
 ```
 ├── main.py           # Entry point
 ├── settings.py       # pydantic-settings config (reads .env)
+├── lib/              # Shared utilities
+│   ├── hub.py        # Hub API (submit_answer, fetch_data)
+│   ├── llm.py        # LangChain LLM via OpenRouter
+│   └── logging.py    # Rich logging setup
+├── tasks/            # Course task packages (S01E01_name/)
+│   └── S01E01_people/
 ├── pyproject.toml    # Project metadata, ruff & pyright config
 ├── justfile          # Task runner commands
 ├── .mise.toml        # Runtime version config

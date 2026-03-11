@@ -39,6 +39,10 @@ add *pkgs:
 add-dev *pkgs:
     uv add --group dev {{pkgs}}
 
+# Run a task by package name
+task name:
+    uv run python -m tasks.{{name}}
+
 # Remove a dependency
 remove *pkgs:
     uv remove {{pkgs}}

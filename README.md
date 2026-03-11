@@ -27,11 +27,18 @@ cp .env.example .env  # configure API keys
 just run              # run main script
 ```
 
+## Running tasks
+
+```bash
+just task S01E01_people   # Run a specific course task
+```
+
 ## Just commands
 
 ```
 just setup      # Install dependencies
 just run        # Run main script
+just task <name># Run a task by package name
 just exec <cmd> # Execute command in venv
 just lint       # Lint + type check
 just fmt        # Format code

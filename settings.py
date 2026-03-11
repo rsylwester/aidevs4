@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     openrouter_api_key: str
+    aidevs_key: str
+    aidevs_verify_address: str
 
 
 settings = Settings()  # type: ignore[reportCallIssue]
