@@ -31,6 +31,7 @@
 - **LangChain + OpenRouter** for all LLM calls.
 - Use `lib.llm.get_llm()` — never instantiate `ChatOpenAI` directly in tasks.
 - Use `.with_structured_output()` for typed LLM responses.
+- **No LLM for math/computation**: use code, libraries, or APIs for geocoding, distance calculations, arithmetic, etc. — never delegate computable tasks to an LLM.
 
 ## Project structure
 
