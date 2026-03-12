@@ -21,6 +21,13 @@
 - **Line length**: 120 characters.
 - **Target**: Python 3.14.
 
+## Pythonic code
+
+- **Use Python 3.14 syntax** — type aliases (`type X = ...`), generic functions/classes (`def f[T](...)`), `match`/`case`, union types (`X | Y`), `except*` for exception groups, assignment expressions (`:=`).
+- **Prefer libraries over hand-rolled code** — reach for stdlib (`itertools`, `functools`, `collections`, `operator`, `contextlib`, `dataclasses`) and third-party packages before writing complex utilities. `uv add` a well-maintained library rather than reinventing.
+- **Pythonic idioms** — comprehensions/generators over manual loops, EAFP over LBYL, duck typing, unpacking, `enumerate()`/`zip()`/`any()`/`all()`, context managers, `sum()`/`min()`/`max()` with generators.
+- **Keep it concise** — favor one-expression solutions when readable; avoid unnecessary intermediate variables, `range(len(...))` indexing, or `isinstance()` checks when duck typing suffices.
+
 ## Artifacts
 
 - **Required**: all task artifacts (downloaded data, API responses, generated files) must be saved to a `.artifacts/` subdirectory within the task folder (e.g. `tasks/S01E01_people/.artifacts/people.csv`).

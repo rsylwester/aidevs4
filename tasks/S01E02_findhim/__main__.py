@@ -14,9 +14,12 @@ import httpx
 from geopy.geocoders import (  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
     Nominatim,  # pyright: ignore[reportUnknownVariableType]
 )
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import tool  # pyright: ignore[reportUnknownVariableType]
 from pydantic import BaseModel
 
 from lib.hub import fetch_data, submit_answer
+from lib.llm import get_llm
 from lib.logging import setup_logging
 from settings import settings
 from tasks.S01E01_people.constants import (
@@ -179,14 +182,12 @@ def _get_access_level(name: str, surname: str, birth_year: int) -> str:
     return str(data.get("accessLevel", data.get("access_level", data.get("data", ""))))
 
 
-# -- Main --------------------------------------------------------------------
+# -- Agent tools --------------------------------------------------------------
 
 
-def run() -> None:
-    setup_logging()
-    ARTIFACTS.mkdir(exist_ok=True)
-
-    # 1. Load suspects from S01E01 data
+@tool
+def load_transport_suspects() -> str:
+    """Load people CSV, filter candidates, tag jobs, return transport suspects as JSON."""
     s01e01_csv = Path(__file__).parent.parent / "S01E01_people" / ".artifacts" / DATA_FILE
     if s01e01_csv.exists():
         raw_csv = s01e01_csv.read_text(encoding="utf-8")
@@ -204,7 +205,12 @@ def run() -> None:
     for s in suspects:
         logger.info("  %s %s (born %s)", s[COL_NAME], s[COL_SURNAME], s[COL_BIRTH_DATE][:4])
 
-    # 2. Fetch power plant data
+    return json.dumps(suspects, ensure_ascii=False)
+
+
+@tool
+def get_power_plants() -> str:
+    """Fetch power plant data from hub, geocode active plants, return with coordinates."""
     logger.info("[bold cyan]Fetching power plant locations...[/]")
     raw_plants = fetch_data("findhim_locations.json")
     (ARTIFACTS / "findhim_locations.json").write_text(raw_plants, encoding="utf-8")
@@ -213,7 +219,6 @@ def run() -> None:
     active_plants = [p for p in plants if p.active]
     logger.info("[green]Active power plants: %d[/]", len(active_plants))
 
-    # 3. Geocode plant cities
     city_names = [p.city for p in active_plants]
     logger.info("[bold cyan]Geocoding %d cities...[/]", len(city_names))
     coords = _geocode_cities(city_names)
@@ -224,69 +229,173 @@ def run() -> None:
         encoding="utf-8",
     )
 
-    # 4. Query each suspect's locations and find closest to any plant
-    all_suspect_locations: dict[str, list[dict[str, float]]] = {}
-    best_distance = float("inf")
-    best_suspect: dict[str, str] | None = None
-    best_plant: PowerPlant | None = None
+    result: list[dict[str, Any]] = []
+    for plant in active_plants:
+        entry: dict[str, Any] = {"city": plant.city, "code": plant.code, "power_mw": plant.power_mw}
+        if plant.city in coords:
+            entry["lat"] = coords[plant.city][0]
+            entry["lon"] = coords[plant.city][1]
+        result.append(entry)
+
+    return json.dumps(result, ensure_ascii=False)
+
+
+@tool
+def find_nearest_suspect(suspects_json: str, plants_json: str) -> str:
+    """Find which suspect is nearest to any active nuclear power plant.
+
+    Takes the JSON output of load_transport_suspects and get_power_plants.
+    Internally fetches each suspect's locations and computes all haversine distances.
+    Returns the single closest suspect-plant pair with distance.
+    """
+    suspects: list[dict[str, str]] = json.loads(suspects_json)
+    plants: list[dict[str, Any]] = json.loads(plants_json)
+
+    best: dict[str, Any] | None = None
+    best_dist = float("inf")
+    all_locations: dict[str, list[dict[str, float]]] = {}
 
     for suspect in suspects:
         name = suspect[COL_NAME]
         surname = suspect[COL_SURNAME]
         locations = _get_suspect_locations(name, surname)
-        all_suspect_locations[f"{name} {surname}"] = [{"lat": pt.lat, "lon": pt.lon} for pt in locations]
+        all_locations[f"{name} {surname}"] = [{"lat": loc.lat, "lon": loc.lon} for loc in locations]
         logger.info("[cyan]%s %s: %d locations[/]", name, surname, len(locations))
 
         for loc in locations:
-            for plant in active_plants:
-                plant_coord = coords.get(plant.city)
-                if not plant_coord:
+            for plant in plants:
+                if "lat" not in plant or "lon" not in plant:
                     continue
-                dist = _haversine(loc.lat, loc.lon, plant_coord[0], plant_coord[1])
-                if dist < best_distance:
-                    best_distance = dist
-                    best_suspect = suspect
-                    best_plant = plant
-                    logger.info(
-                        "  [yellow]New best: %.1f km from %s (%s)[/]",
-                        dist,
-                        plant.city,
-                        plant.code,
-                    )
+                dist = _haversine(loc.lat, loc.lon, float(plant["lat"]), float(plant["lon"]))
+                logger.info(
+                    "[yellow]Distance: %s %s → %s = %.1f km[/]",
+                    name,
+                    surname,
+                    plant["city"],
+                    dist,
+                )
+                if dist < best_dist:
+                    best_dist = dist
+                    best = {
+                        "name": name,
+                        "surname": surname,
+                        "birthDate": suspect.get(COL_BIRTH_DATE, ""),
+                        "plant_city": plant["city"],
+                        "plant_code": plant["code"],
+                        "distance_km": round(dist, 2),
+                    }
 
+    # Save all suspect locations as artifact
     (ARTIFACTS / "suspect_locations.json").write_text(
-        json.dumps(all_suspect_locations, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(all_locations, indent=2, ensure_ascii=False), encoding="utf-8"
     )
 
-    if best_suspect is None or best_plant is None:
-        logger.error("[bold red]No suspect found near any power plant![/]")
-        return
+    if best is None:
+        return json.dumps({"error": "No valid suspect-plant pair found"})
 
-    name = best_suspect[COL_NAME]
-    surname = best_suspect[COL_SURNAME]
-    birth_year = int(best_suspect[COL_BIRTH_DATE][:4])
     logger.info(
-        "[bold green]Closest suspect: %s %s — %.1f km from %s (%s)[/]",
-        name,
-        surname,
-        best_distance,
-        best_plant.city,
-        best_plant.code,
+        "[bold green]Nearest: %s %s → %s (%.1f km)[/]",
+        best["name"],
+        best["surname"],
+        best["plant_city"],
+        best["distance_km"],
     )
+    return json.dumps(best, ensure_ascii=False)
 
-    # 5. Get access level
-    access_level = _get_access_level(name, surname, birth_year)
-    logger.info("[bold magenta]Access level: %s[/]", access_level)
 
-    # 6. Submit answer
+@tool
+def get_access_level(name: str, surname: str, birth_year: int) -> str:
+    """Query hub API for a suspect's access level. Requires name, surname, and birth year."""
+    level = _get_access_level(name, surname, birth_year)
+    return json.dumps({"access_level": level})
+
+
+@tool
+def submit_final_answer(name: str, surname: str, access_level: str, power_plant_code: str) -> str:
+    """Submit the final answer to the hub once you've identified the closest suspect."""
     answer = {
         "name": name,
         "surname": surname,
         "accessLevel": access_level,
-        "powerPlant": best_plant.code,
+        "powerPlant": power_plant_code,
     }
     logger.info("[bold cyan]Submitting: %s[/]", answer)
-    submit_answer("findhim", answer)
+    try:
+        result = submit_answer("findhim", answer)
+        return json.dumps(result, ensure_ascii=False, default=str)
+    except httpx.HTTPStatusError as exc:
+        error_body: Any = exc.response.json()  # pyright: ignore[reportUnknownMemberType]
+        logger.exception("[bold red]Submission failed: %s[/]", error_body)
+        return json.dumps({"error": True, "details": error_body}, ensure_ascii=False, default=str)
+
+
+# -- Agent system prompt ------------------------------------------------------
+
+AGENT_SYSTEM_PROMPT = """\
+You are an investigator agent. Your task: find which transport suspect is nearest \
+an active nuclear power plant, determine their access level, and submit the answer.
+
+Steps:
+1. Call load_transport_suspects to get the list of suspects.
+2. Call get_power_plants to get active nuclear power plants with coordinates.
+3. Call find_nearest_suspect with both JSON outputs — it fetches all suspect \
+   locations and computes all distances internally, returning the single closest pair.
+4. Call get_access_level with the closest suspect's name, surname, and birth year \
+   (extract year from birthDate field, first 4 chars).
+5. Call submit_final_answer with the suspect's name, surname, access level, and \
+   the power plant code.
+
+Important:
+- The birthDate format is YYYY-MM-DD — extract the year as an integer.
+"""
+
+
+# -- Main --------------------------------------------------------------------
+
+
+def run() -> None:
+    setup_logging()
+    ARTIFACTS.mkdir(exist_ok=True)
+
+    llm = get_llm("openai/gpt-4o-mini")
+    agent_tools: list[Any] = [
+        load_transport_suspects,
+        get_power_plants,
+        find_nearest_suspect,
+        get_access_level,
+        submit_final_answer,
+    ]
+    llm_with_tools = llm.bind_tools(agent_tools)  # pyright: ignore[reportUnknownMemberType]
+    tool_map: dict[str, Any] = {t.name: t for t in agent_tools}  # pyright: ignore[reportUnknownMemberType]
+
+    messages: list[Any] = [
+        SystemMessage(content=AGENT_SYSTEM_PROMPT),
+        HumanMessage(
+            content="Find which transport suspect is nearest an active nuclear power plant, "
+            "get their access level, and submit the answer."
+        ),
+    ]
+
+    max_iterations = 10
+    for i in range(max_iterations):
+        logger.info("[bold blue]Agent iteration %d/%d[/]", i + 1, max_iterations)
+        response: AIMessage = llm_with_tools.invoke(messages)  # pyright: ignore[reportAssignmentType, reportUnknownMemberType]
+        messages.append(response)
+
+        tool_calls = cast("list[dict[str, Any]]", response.tool_calls)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        if not tool_calls:
+            logger.info("[bold green]Agent finished: %s[/]", response.content)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            break
+
+        for tc in tool_calls:
+            tool_name: str = tc["name"]
+            tool_args: dict[str, Any] = tc["args"]
+            logger.info("[dim]Calling tool: %s(%s)[/]", tool_name, tool_args)
+            tool_fn = tool_map[tool_name]
+            result: str = tool_fn.invoke(tool_args)  # pyright: ignore[reportUnknownMemberType]
+            messages.append(ToolMessage(content=result, tool_call_id=tc["id"]))
+    else:
+        logger.error("[bold red]Agent hit max iterations (%d)[/]", max_iterations)
 
 
 if __name__ == "__main__":
