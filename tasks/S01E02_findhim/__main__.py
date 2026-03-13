@@ -357,45 +357,50 @@ def run() -> None:
     setup_logging()
     ARTIFACTS.mkdir(exist_ok=True)
 
-    llm = get_llm("openai/gpt-4o-mini")
-    agent_tools: list[Any] = [
-        load_transport_suspects,
-        get_power_plants,
-        find_nearest_suspect,
-        get_access_level,
-        submit_final_answer,
-    ]
-    llm_with_tools = llm.bind_tools(agent_tools)  # pyright: ignore[reportUnknownMemberType]
-    tool_map: dict[str, Any] = {t.name: t for t in agent_tools}  # pyright: ignore[reportUnknownMemberType]
+    from lib.tracing import langfuse_session
 
-    messages: list[Any] = [
-        SystemMessage(content=AGENT_SYSTEM_PROMPT),
-        HumanMessage(
-            content="Find which transport suspect is nearest an active nuclear power plant, "
-            "get their access level, and submit the answer."
-        ),
-    ]
+    with langfuse_session("S01E02-findhim") as session_id:
+        logger.info("[bold cyan]Session: %s[/]", session_id)
 
-    max_iterations = 10
-    for i in range(max_iterations):
-        logger.info("[bold blue]Agent iteration %d/%d[/]", i + 1, max_iterations)
-        response: AIMessage = llm_with_tools.invoke(messages)  # pyright: ignore[reportAssignmentType, reportUnknownMemberType]
-        messages.append(response)
+        llm = get_llm("openai/gpt-4o-mini")
+        agent_tools: list[Any] = [
+            load_transport_suspects,
+            get_power_plants,
+            find_nearest_suspect,
+            get_access_level,
+            submit_final_answer,
+        ]
+        llm_with_tools = llm.bind_tools(agent_tools)  # pyright: ignore[reportUnknownMemberType]
+        tool_map: dict[str, Any] = {t.name: t for t in agent_tools}  # pyright: ignore[reportUnknownMemberType]
 
-        tool_calls = cast("list[dict[str, Any]]", response.tool_calls)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-        if not tool_calls:
-            logger.info("[bold green]Agent finished: %s[/]", response.content)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-            break
+        messages: list[Any] = [
+            SystemMessage(content=AGENT_SYSTEM_PROMPT),
+            HumanMessage(
+                content="Find which transport suspect is nearest an active nuclear power plant, "
+                "get their access level, and submit the answer."
+            ),
+        ]
 
-        for tc in tool_calls:
-            tool_name: str = tc["name"]
-            tool_args: dict[str, Any] = tc["args"]
-            logger.info("[dim]Calling tool: %s(%s)[/]", tool_name, tool_args)
-            tool_fn = tool_map[tool_name]
-            result: str = tool_fn.invoke(tool_args)  # pyright: ignore[reportUnknownMemberType]
-            messages.append(ToolMessage(content=result, tool_call_id=tc["id"]))
-    else:
-        logger.error("[bold red]Agent hit max iterations (%d)[/]", max_iterations)
+        max_iterations = 10
+        for i in range(max_iterations):
+            logger.info("[bold blue]Agent iteration %d/%d[/]", i + 1, max_iterations)
+            response: AIMessage = llm_with_tools.invoke(messages)  # pyright: ignore[reportAssignmentType, reportUnknownMemberType]
+            messages.append(response)
+
+            tool_calls = cast("list[dict[str, Any]]", response.tool_calls)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            if not tool_calls:
+                logger.info("[bold green]Agent finished: %s[/]", response.content)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                break
+
+            for tc in tool_calls:
+                tool_name: str = tc["name"]
+                tool_args: dict[str, Any] = tc["args"]
+                logger.info("[dim]Calling tool: %s(%s)[/]", tool_name, tool_args)
+                tool_fn = tool_map[tool_name]
+                result: str = tool_fn.invoke(tool_args)  # pyright: ignore[reportUnknownMemberType]
+                messages.append(ToolMessage(content=result, tool_call_id=tc["id"]))
+        else:
+            logger.error("[bold red]Agent hit max iterations (%d)[/]", max_iterations)
 
 
 if __name__ == "__main__":
