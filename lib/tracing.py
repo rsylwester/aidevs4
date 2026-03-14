@@ -62,7 +62,11 @@ def check_langfuse_connection() -> bool:
 
 
 def get_langfuse_handler() -> CallbackHandler:
-    """Return a Langfuse callback handler for LangChain."""
+    """Return a Langfuse callback handler for LangChain.
+
+    In Langfuse v4, trace-level attributes (session_id, trace_name, etc.)
+    are set via ``propagate_attributes`` context manager, not constructor args.
+    """
     _ensure_langfuse_env()
     check_langfuse_connection()
 

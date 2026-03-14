@@ -16,19 +16,19 @@ def run() -> None:
     setup_logging()
     ARTIFACTS.mkdir(exist_ok=True)
 
-    import dotenv  # pyright: ignore[reportMissingTypeStubs]
-    import ngrok  # pyright: ignore[reportMissingTypeStubs, reportMissingImports]
-    import uvicorn  # pyright: ignore[reportMissingTypeStubs]
+    import dotenv
+    import ngrok  # pyright: ignore[reportMissingImports]
+    import uvicorn
 
-    dotenv.load_dotenv()  # pyright: ignore[reportUnknownMemberType]
-    listener = ngrok.forward(8000, authtoken_from_env=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-    public_url = str(listener.url())  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    dotenv.load_dotenv()
+    listener = ngrok.forward(8000, authtoken_from_env=True)
+    public_url = str(listener.url())
     logger.info("[bold cyan]Public URL: %s[/]", public_url)
 
     # Store URL for submission after server starts (in lifespan)
     import tasks.S01E03_proxy.proxy_server as srv
 
-    srv.PUBLIC_URL = public_url  # pyright: ignore[reportAttributeAccessIssue]
+    srv.PUBLIC_URL = public_url
 
     uvicorn.run(
         "tasks.S01E03_proxy.proxy_server:app",

@@ -40,6 +40,13 @@
 - Use `.with_structured_output()` for typed LLM responses.
 - **No LLM for math/computation**: use code, libraries, or APIs for geocoding, distance calculations, arithmetic, etc. — never delegate computable tasks to an LLM.
 
+## Tracing
+
+- **Langfuse** for all LLM observability — every task must set `trace_name` and `session_id`.
+- **Batch/CLI tasks**: wrap processing in `lib.tracing.langfuse_session(task_name)` context manager — it generates a unique session ID and sets both attributes via `propagate_attributes`.
+- **Long-lived servers** (FastAPI, etc.): use `langfuse.propagate_attributes(session_id=..., trace_name=...)` at request scope.
+- `get_llm()` auto-attaches the Langfuse callback handler; trace attributes come from the surrounding `propagate_attributes` context, not from `get_llm()` args.
+
 ## Project structure
 
 ```

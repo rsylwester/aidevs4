@@ -13,13 +13,21 @@ from settings import settings
 logger = logging.getLogger(__name__)
 
 
-def get_llm(model: str = "openai/gpt-4o-mini", *, callbacks: list[Any] | None = None) -> ChatOpenAI:
-    """Return a ChatOpenAI instance configured for OpenRouter with Langfuse tracing."""
+def get_llm(
+    model: str = "openai/gpt-4o-mini",
+    *,
+    callbacks: list[Any] | None = None,
+) -> ChatOpenAI:
+    """Return a ChatOpenAI instance configured for OpenRouter with Langfuse tracing.
+
+    Trace-level attributes (session_id, trace_name) are set via
+    ``propagate_attributes`` context manager, not here.
+    """
     all_callbacks: list[Any] = list(callbacks) if callbacks else []
     try:
         all_callbacks.append(get_langfuse_handler())
     except Exception:
-        logger.debug("Langfuse handler not available, tracing disabled")
+        logger.warning("Langfuse handler not available, tracing disabled", exc_info=True)
 
     return ChatOpenAI(
         model=model,
