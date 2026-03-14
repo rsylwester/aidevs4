@@ -14,4 +14,4 @@ class Settings(BaseSettings):
     langfuse_base_url: str = "http://localhost:3000"
 
 
-settings = Settings()  # type: ignore[reportCallIssue]
+settings: Settings = Settings.model_validate({})

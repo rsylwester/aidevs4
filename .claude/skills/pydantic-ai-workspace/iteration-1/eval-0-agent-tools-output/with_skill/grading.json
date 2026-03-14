@@ -1,0 +1,12 @@
+{
+  "eval_id": 0,
+  "run_id": "eval-0-with_skill",
+  "expectations": [
+    {"text": "Uses correct imports: Agent, RunContext from pydantic_ai and BaseModel from pydantic", "passed": true, "evidence": "Line 3: from pydantic import BaseModel, Field; Line 4: from pydantic_ai import Agent. No RunContext imported since tool_plain used (valid choice)."},
+    {"text": "Agent has output_type set to a BaseModel with product_name, price, and confidence_score fields", "passed": true, "evidence": "Line 33: output_type=ProductResult. ProductResult (line 19-28) has product_name, price, confidence_score fields."},
+    {"text": "Uses @agent.tool or @agent.tool_plain decorator for tool registration", "passed": true, "evidence": "Line 42: @agent.tool_plain decorator used."},
+    {"text": "Tool function has a docstring with parameter descriptions", "passed": true, "evidence": "Lines 44-52: Docstring with Args section describing query parameter."},
+    {"text": "All functions have full type annotations (params and return types)", "passed": true, "evidence": "search_products(query: str) -> str, main() -> None. All annotated."},
+    {"text": "confidence_score field is constrained to 0-1 range (ge=0, le=1 or similar)", "passed": true, "evidence": "Lines 24-28: confidence_score: float = Field(ge=0.0, le=1.0, ...)"}
+  ]
+}

@@ -45,7 +45,7 @@ def tag_jobs(jobs: list[tuple[int, str]]) -> list[PersonTags]:
     lines = [f"{idx}: {desc}" for idx, desc in jobs]
     user_msg = "\n".join(lines)
 
-    llm = get_llm().with_structured_output(TaggingResult)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    llm = get_llm().with_structured_output(TaggingResult)
     result = cast(
         "TaggingResult",
         llm.invoke(

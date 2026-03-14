@@ -1,0 +1,23 @@
+{
+  "skill_name": "pydantic-ai",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Build a pydantic-ai agent that takes a user question about products, uses a tool to search a product database (just mock it with a dict), and returns a structured Pydantic model response with fields: product_name, price, and confidence_score (0-1 float). Include proper type annotations and docstrings on the tool.",
+      "expected_output": "A working Python script with Agent, @agent.tool, RunContext, BaseModel output type, proper type annotations, and a mock database lookup tool",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "I need to connect my pydantic-ai agent to two MCP servers: one running on http://localhost:8000/mcp via HTTP, and another local stdio-based server at ./tools/calculator.py. The tools from both servers might have name collisions so handle that. Show me the full setup code.",
+      "expected_output": "Code using MCPServerStreamableHTTP and MCPServerStdio with tool_prefix to avoid collisions, proper async context management, and toolsets parameter",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Create a multi-agent setup with pydantic-ai where a main orchestrator agent delegates research tasks to a specialist research agent. The research agent should use a different cheaper model. Track token usage across both agents. The orchestrator should return a typed Report model with title, findings (list of strings), and summary.",
+      "expected_output": "Two agents with different models, @main_agent.tool delegating to research_agent with usage=ctx.usage, Report BaseModel, proper dependency and usage tracking",
+      "files": []
+    }
+  ]
+}

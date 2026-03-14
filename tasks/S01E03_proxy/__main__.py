@@ -17,7 +17,7 @@ def run() -> None:
     ARTIFACTS.mkdir(exist_ok=True)
 
     import dotenv
-    import ngrok  # pyright: ignore[reportMissingImports]
+    import ngrok
     import uvicorn
 
     dotenv.load_dotenv()

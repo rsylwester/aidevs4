@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from lib.tracing import get_langfuse_handler
 from settings import settings
@@ -31,7 +32,7 @@ def get_llm(
 
     return ChatOpenAI(
         model=model,
-        api_key=settings.openrouter_api_key,  # type: ignore[arg-type]
+        api_key=SecretStr(settings.openrouter_api_key),
         base_url="https://openrouter.ai/api/v1",
-        callbacks=all_callbacks or None,  # type: ignore[arg-type]
+        callbacks=list(all_callbacks) if all_callbacks else None,
     )

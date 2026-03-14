@@ -58,7 +58,7 @@ def check_langfuse_connection() -> bool:
             logger.warning("Langfuse responded with status %d at %s", resp.status_code, settings.langfuse_base_url)
             _langfuse_healthy = False
 
-    return _langfuse_healthy  # pyright: ignore[reportReturnType]
+    return bool(_langfuse_healthy)
 
 
 def get_langfuse_handler() -> CallbackHandler:
@@ -96,14 +96,14 @@ def langfuse_session(task_name: str) -> Iterator[str]:
 
     Yields the session ID string.
     """
-    from langfuse import propagate_attributes  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+    from langfuse import propagate_attributes
 
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
     session_id = f"{task_name}-{ts}-{uuid.uuid4().hex[:6]}"
 
     logger.info("[bold cyan]Langfuse session: %s[/]", session_id)
 
-    with propagate_attributes(session_id=session_id, trace_name=task_name):  # pyright: ignore[reportUnknownMemberType]
+    with propagate_attributes(session_id=session_id, trace_name=task_name):
         try:
             yield session_id
         finally:

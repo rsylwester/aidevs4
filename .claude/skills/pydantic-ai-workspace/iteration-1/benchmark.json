@@ -1,0 +1,39 @@
+{
+  "skill_name": "pydantic-ai",
+  "iteration": 1,
+  "configurations": [
+    {
+      "name": "with_skill",
+      "evals": [
+        {"eval_name": "agent-tools-output", "passed": 6, "total": 6, "pass_rate": 1.0},
+        {"eval_name": "mcp-integration", "passed": 6, "total": 6, "pass_rate": 1.0},
+        {"eval_name": "multi-agent-delegation", "passed": 6, "total": 6, "pass_rate": 1.0}
+      ],
+      "aggregate": {"total_passed": 18, "total_assertions": 18, "pass_rate": 1.0}
+    },
+    {
+      "name": "without_skill",
+      "evals": [
+        {"eval_name": "agent-tools-output", "passed": 5, "total": 6, "pass_rate": 0.833},
+        {"eval_name": "mcp-integration", "passed": 2, "total": 6, "pass_rate": 0.333},
+        {"eval_name": "multi-agent-delegation", "passed": 3, "total": 6, "pass_rate": 0.5}
+      ],
+      "aggregate": {"total_passed": 10, "total_assertions": 18, "pass_rate": 0.556}
+    }
+  ],
+  "analysis": {
+    "summary": "With-skill achieves 100% pass rate (18/18) vs baseline 55.6% (10/18). The skill provides the biggest lift on MCP integration (+66.7%) and multi-agent delegation (+50%), where the baseline uses deprecated APIs extensively.",
+    "key_findings": [
+      "Baseline consistently uses deprecated API names: result_type (not output_type), Usage (not RunUsage), result.data (not result.output), MCPServerHTTP (not MCPServerStreamableHTTP), mcp_servers (not toolsets), run_mcp_servers (not async with agent:)",
+      "With-skill code correctly uses all v1.x API names and patterns",
+      "The MCP eval shows the starkest difference — baseline gets 4 of 6 assertions wrong with deprecated patterns",
+      "Multi-agent baseline doesn't use tool-based delegation (uses programmatic pipeline instead), missing the idiomatic pydantic-ai pattern",
+      "With-skill agent-tools-output used tool_plain (no RunContext) which is a valid and simpler choice for a tool that doesn't need deps"
+    ],
+    "non_discriminating_assertions": [
+      "confidence_score constrained to 0-1 (both got this right)",
+      "Two agents at module level (both got this right)",
+      "Report model with correct fields (both got this right)"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "eval_id": 0,
+  "eval_name": "agent-tools-output",
+  "prompt": "Build a pydantic-ai agent that takes a user question about products, uses a tool to search a product database (just mock it with a dict), and returns a structured Pydantic model response with fields: product_name, price, and confidence_score (0-1 float). Include proper type annotations and docstrings on the tool.",
+  "assertions": [
+    {"text": "Uses correct imports: Agent, RunContext from pydantic_ai and BaseModel from pydantic", "type": "code_check"},
+    {"text": "Agent has output_type set to a BaseModel with product_name, price, and confidence_score fields", "type": "code_check"},
+    {"text": "Uses @agent.tool or @agent.tool_plain decorator for tool registration", "type": "code_check"},
+    {"text": "Tool function has a docstring with parameter descriptions", "type": "code_check"},
+    {"text": "All functions have full type annotations (params and return types)", "type": "code_check"},
+    {"text": "confidence_score field is constrained to 0-1 range (ge=0, le=1 or similar)", "type": "code_check"}
+  ]
+}

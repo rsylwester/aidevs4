@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import httpx
-from geopy.geocoders import (  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
-    Nominatim,  # pyright: ignore[reportUnknownVariableType]
+from geopy.geocoders import (
+    Nominatim,
 )
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.tools import tool  # pyright: ignore[reportUnknownVariableType]
+from langchain_core.tools import tool
 from pydantic import BaseModel
 
 from lib.hub import fetch_data, submit_answer
@@ -130,12 +130,12 @@ def _parse_plants(raw_json: str) -> list[PowerPlant]:
 
 def _geocode_cities(city_names: list[str]) -> dict[str, tuple[float, float]]:
     """Use Nominatim to get lat/lon for Polish city names."""
-    geolocator = Nominatim(user_agent="aidevs4-findhim")  # pyright: ignore[reportUnknownVariableType]
+    geolocator = Nominatim(user_agent="aidevs4-findhim")
     coords: dict[str, tuple[float, float]] = {}
     for city in city_names:
-        location = geolocator.geocode(f"{city}, Poland")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        location = geolocator.geocode(f"{city}, Poland")
         if location is not None:
-            coords[city] = (float(location.latitude), float(location.longitude))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+            coords[city] = (float(location.latitude), float(location.longitude))
         else:
             logger.warning("[yellow]Could not geocode: %s[/]", city)
     return coords
@@ -156,9 +156,7 @@ def _get_suspect_locations(name: str, surname: str) -> list[SuspectLocation]:
     if isinstance(data, list):
         raw_locations: list[dict[str, Any]] = cast("list[dict[str, Any]]", data)
     else:
-        raw_locations: list[dict[str, Any]] = cast(  # type: ignore[no-redef]
-            "list[dict[str, Any]]", data.get("locations", data.get("data", []))
-        )
+        raw_locations: list[dict[str, Any]] = cast("list[dict[str, Any]]", data.get("locations", data.get("data", [])))
     return [
         SuspectLocation(
             lat=float(str(loc.get("lat", loc.get("latitude", 0)))),
@@ -324,7 +322,7 @@ def submit_final_answer(name: str, surname: str, access_level: str, power_plant_
         result = submit_answer("findhim", answer)
         return json.dumps(result, ensure_ascii=False, default=str)
     except httpx.HTTPStatusError as exc:
-        error_body: Any = exc.response.json()  # pyright: ignore[reportUnknownMemberType]
+        error_body: Any = exc.response.json()
         logger.exception("[bold red]Submission failed: %s[/]", error_body)
         return json.dumps({"error": True, "details": error_body}, ensure_ascii=False, default=str)
 
@@ -370,8 +368,8 @@ def run() -> None:
             get_access_level,
             submit_final_answer,
         ]
-        llm_with_tools = llm.bind_tools(agent_tools)  # pyright: ignore[reportUnknownMemberType]
-        tool_map: dict[str, Any] = {t.name: t for t in agent_tools}  # pyright: ignore[reportUnknownMemberType]
+        llm_with_tools = llm.bind_tools(agent_tools)
+        tool_map: dict[str, Any] = {t.name: t for t in agent_tools}
 
         messages: list[Any] = [
             SystemMessage(content=AGENT_SYSTEM_PROMPT),
@@ -384,12 +382,12 @@ def run() -> None:
         max_iterations = 10
         for i in range(max_iterations):
             logger.info("[bold blue]Agent iteration %d/%d[/]", i + 1, max_iterations)
-            response: AIMessage = llm_with_tools.invoke(messages)  # pyright: ignore[reportAssignmentType, reportUnknownMemberType]
+            response: AIMessage = llm_with_tools.invoke(messages)
             messages.append(response)
 
-            tool_calls = cast("list[dict[str, Any]]", response.tool_calls)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            tool_calls = cast("list[dict[str, Any]]", response.tool_calls)
             if not tool_calls:
-                logger.info("[bold green]Agent finished: %s[/]", response.content)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                logger.info("[bold green]Agent finished: %s[/]", response.content)
                 break
 
             for tc in tool_calls:
@@ -397,7 +395,7 @@ def run() -> None:
                 tool_args: dict[str, Any] = tc["args"]
                 logger.info("[dim]Calling tool: %s(%s)[/]", tool_name, tool_args)
                 tool_fn = tool_map[tool_name]
-                result: str = tool_fn.invoke(tool_args)  # pyright: ignore[reportUnknownMemberType]
+                result: str = tool_fn.invoke(tool_args)
                 messages.append(ToolMessage(content=result, tool_call_id=tc["id"]))
         else:
             logger.error("[bold red]Agent hit max iterations (%d)[/]", max_iterations)

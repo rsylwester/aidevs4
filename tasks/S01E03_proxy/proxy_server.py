@@ -86,16 +86,16 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
     """Handle chat messages with agent loop."""
     logger.info("[bold cyan]Session %s | msg: %s[/]", body.sessionID, body.msg)
 
-    from langfuse import propagate_attributes  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+    from langfuse import propagate_attributes
 
     session: ClientSession = request.app.state.mcp_session
     openai_tools: list[dict[str, Any]] = request.app.state.openai_tools
 
     sid = body.sessionID
 
-    with propagate_attributes(session_id=sid, trace_name="proxy-chat"):  # pyright: ignore[reportUnknownMemberType]
+    with propagate_attributes(session_id=sid, trace_name="proxy-chat"):
         llm = get_llm("openai/gpt-4.1-mini")
-        llm_with_tools = llm.bind_tools(openai_tools)  # pyright: ignore[reportUnknownMemberType]
+        llm_with_tools = llm.bind_tools(openai_tools)
 
         # Get or create session history
         if sid not in _sessions:
@@ -107,12 +107,12 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
         # Agent loop
         for i in range(MAX_ITERATIONS):
             logger.info("[dim][%s] Iteration %d/%d[/]", sid, i + 1, MAX_ITERATIONS)
-            response: AIMessage = await llm_with_tools.ainvoke(history)  # type: ignore[assignment]
+            response: AIMessage = await llm_with_tools.ainvoke(history)
             history.append(response)
 
             tool_calls = cast("list[dict[str, Any]]", response.tool_calls)
             if not tool_calls:
-                content = str(response.content)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+                content = str(response.content)
                 logger.info("[bold green][%s] Response: %s[/]", sid, content)
                 return ChatResponse(msg=content)
 
@@ -123,7 +123,7 @@ async def chat(request: Request, body: ChatRequest) -> ChatResponse:
 
                 # Call MCP tool via SSE session
                 result = await session.call_tool(tool_name, tool_args)
-                result_text = str(result.content[0].text) if result.content else "No result"  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownArgumentType]
+                result_text = str(result.content[0].text) if result.content else "No result"
                 logger.info("[dim][%s] Tool result: %s[/]", sid, result_text[:200])
                 history.append(ToolMessage(content=result_text, tool_call_id=tc["id"]))
 

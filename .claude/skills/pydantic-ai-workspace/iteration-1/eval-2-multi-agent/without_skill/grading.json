@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "run_id": "eval-2-without_skill",
+  "expectations": [
+    {"text": "Two separate Agent instances defined at module level", "passed": true, "evidence": "Lines 49-57: research_agent; Lines 63-72: orchestrator_agent"},
+    {"text": "Agents use different model identifiers (e.g. gpt-5.2 vs gpt-5-mini or similar cost split)", "passed": true, "evidence": "Line 50: 'openai:gpt-4o-mini', Line 64: 'openai:gpt-4o'"},
+    {"text": "Main agent has a @agent.tool that calls the research agent via await research_agent.run()", "passed": false, "evidence": "No @agent.tool delegation. Uses programmatic hand-off (run_research function) instead of tool-based delegation. The LLM cannot decide to call research — it's hardcoded in pipeline."},
+    {"text": "Delegation passes usage=ctx.usage for token tracking aggregation", "passed": false, "evidence": "No usage= parameter passed to research_agent.run(). Manually merges Usage objects with a custom merge_usage() function — fragile and uses deprecated Usage class."},
+    {"text": "Report BaseModel defined with title (str), findings (list[str]), and summary (str) fields", "passed": true, "evidence": "Lines 16-20: Report with title: str, findings: list[str], summary: str"},
+    {"text": "Tool function uses RunContext with proper generic type parameter", "passed": false, "evidence": "No RunContext used at all. No tool-based delegation pattern. Uses deprecated 'result_type' instead of 'output_type'. Uses deprecated 'Usage' instead of 'RunUsage'. Accesses result.data instead of result.output."}
+  ]
+}
