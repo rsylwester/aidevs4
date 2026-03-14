@@ -39,7 +39,7 @@ add *pkgs:
 add-dev *pkgs:
     uv add --group dev {{pkgs}}
 
-# Run a task by package name
+# Run a task by package name (supports dotted submodules, e.g. S01E03_proxy.mcp)
 task name:
     uv run python -m tasks.{{name}}
 

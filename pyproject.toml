@@ -5,13 +5,18 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi>=0.135.1",
     "geopy>=2.4.1",
     "httpx>=0.28.1",
     "langchain>=1.2",
     "langchain-openai>=1.1",
     "langfuse>=4.0.0",
+    "mcp>=1.26.0",
+    "ngrok>=1.7.0",
     "pydantic-settings>=2.13.1",
+    "python-dotenv>=1.2.2",
     "rich>=14.3.3",
+    "uvicorn>=0.41.0",
 ]
 
 [dependency-groups]
