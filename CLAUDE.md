@@ -11,6 +11,7 @@
 
 1. After writing code, always run: `just fix` then `just lint`
 2. Fix any issues before considering the task done.
+3. **Never suppress warnings** — fix ruff and pyright issues properly. Do not use `# noqa`, `# type: ignore`, `# pyright: ignore`, or per-file overrides to silence diagnostics.
 
 ## Code style
 
