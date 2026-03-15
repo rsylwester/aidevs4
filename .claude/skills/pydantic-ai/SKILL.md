@@ -256,6 +256,26 @@ logfire.configure()
 logfire.instrument_pydantic_ai()
 ```
 
+```python
+# Langfuse (via OpenTelemetry)
+import importlib
+
+from opentelemetry.sdk.trace import TracerProvider
+from pydantic_ai import Agent
+from pydantic_ai.agent import InstrumentationSettings
+
+span_processor_mod = importlib.import_module("langfuse._client.span_processor")
+LangfuseSpanProcessor = span_processor_mod.LangfuseSpanProcessor
+
+provider = TracerProvider()
+provider.add_span_processor(LangfuseSpanProcessor(
+    public_key="...", secret_key="...", base_url="...",
+))
+Agent.instrument_all(InstrumentationSettings(
+    tracer_provider=provider, include_content=True, version=2,
+))
+```
+
 ## Testing
 
 Use dependency injection to mock external services:

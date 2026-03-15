@@ -87,6 +87,37 @@ def shutdown_langfuse() -> None:
         logger.debug("Langfuse shutdown skipped — client not active")
 
 
+def setup_pydantic_ai_tracing() -> None:
+    """Wire pydantic-ai instrumentation into Langfuse via OpenTelemetry."""
+    import importlib
+
+    _ensure_langfuse_env()
+
+    from opentelemetry.sdk.trace import TracerProvider
+    from pydantic_ai import Agent
+    from pydantic_ai.agent import InstrumentationSettings
+
+    span_processor_mod = importlib.import_module("langfuse._client.span_processor")
+    langfuse_span_processor_cls: type[Any] = span_processor_mod.LangfuseSpanProcessor
+
+    provider = TracerProvider()
+    provider.add_span_processor(
+        langfuse_span_processor_cls(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key,
+            base_url=settings.langfuse_base_url,
+        )
+    )
+    Agent.instrument_all(
+        InstrumentationSettings(
+            tracer_provider=provider,
+            include_content=True,
+            version=2,
+        )
+    )
+    logger.info("pydantic-ai instrumentation wired to Langfuse")
+
+
 @contextlib.contextmanager
 def langfuse_session(task_name: str) -> Iterator[str]:
     """Context manager that groups all LLM traces under one Langfuse session.
