@@ -96,6 +96,8 @@ def langfuse_session(task_name: str) -> Iterator[str]:
 
     Yields the session ID string.
     """
+    _ensure_langfuse_env()
+
     from langfuse import propagate_attributes
 
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")

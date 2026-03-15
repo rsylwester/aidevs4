@@ -1,0 +1,64 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "download_doc",
+      "description": "Download a document from the SPK documentation server. Accepts a full URL or a filename relative to the doc base URL. Text files are returned as content; images are saved and must be read with read_artifact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Full URL or filename relative to doc base URL."
+          }
+        },
+        "required": ["url"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_artifacts",
+      "description": "List all files currently saved in the artifacts directory.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_artifact",
+      "description": "Read an artifact file. Text files return content; images are described using vision AI.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Name of the file in the artifacts directory."
+          }
+        },
+        "required": ["filename"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "submit_final_answer",
+      "description": "Submit the completed SPK declaration to the Hub API for verification.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "declaration": {
+            "type": "string",
+            "description": "The filled-out SPK declaration text."
+          }
+        },
+        "required": ["declaration"]
+      }
+    }
+  }
+]
