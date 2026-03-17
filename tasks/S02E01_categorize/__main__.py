@@ -6,9 +6,11 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import httpx
 import tiktoken
+from langfuse import get_client as get_langfuse_client
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -66,16 +68,36 @@ def _expand_prompt(template: str, item_id: str, description: str) -> str:
     return template.replace("{id}", item_id).replace("{description}", description)
 
 
-def _submit_to_hub(prompt: str) -> dict[str, object]:
+def _submit_to_hub(prompt: str, item_id: str) -> dict[str, object]:
     """Submit a single expanded prompt to hub for classification."""
     payload: dict[str, object] = {
         "apikey": settings.aidevs_key,
         "task": TASK_NAME,
         "answer": {"prompt": prompt},
     }
+    token_count = _count_tokens(prompt)
+    logger.info(
+        "[cyan]Hub request[/] | item=%s | tokens=%d | prompt=%s",
+        item_id,
+        token_count,
+        prompt,
+    )
     resp = httpx.post(VERIFY_URL, json=payload, timeout=30)
     data: dict[str, object] = resp.json()
-    logger.info("[cyan]Hub response (HTTP %d): %s[/]", resp.status_code, data)
+    logger.info("[cyan]Hub response[/] | item=%s | HTTP %d | %s", item_id, resp.status_code, data)
+
+    # Langfuse generation span for this hub request
+    lf: Any = get_langfuse_client()
+    lf.start_observation(
+        name=f"hub-classify-{item_id}",
+        as_type="generation",
+        input=prompt,
+        output=str(data),
+        model="hub-categorize",
+        usage_details={"input": token_count},
+        metadata={"item_id": item_id, "http_status": resp.status_code},
+    )
+
     return data
 
 
@@ -86,9 +108,21 @@ def _reset_hub_counter() -> dict[str, object]:
         "task": TASK_NAME,
         "answer": {"prompt": "reset"},
     }
+    logger.info("[yellow]Resetting hub PP counter[/]")
     resp = httpx.post(VERIFY_URL, json=payload, timeout=30)
     data: dict[str, object] = resp.json()
     logger.info("[yellow]Reset counter response: %s[/]", data)
+
+    # Langfuse span for reset
+    lf: Any = get_langfuse_client()
+    lf.start_observation(
+        name="hub-reset-counter",
+        as_type="span",
+        input={"action": "reset"},
+        output=str(data),
+        metadata={"http_status": resp.status_code},
+    )
+
     return data
 
 
@@ -103,7 +137,7 @@ def extract_flag(text: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 model = OpenAIChatModel(
-    "openai/o4-mini",
+    "openai/gpt-4.1-mini",
     provider=OpenAIProvider(
         base_url="https://openrouter.ai/api/v1",
         api_key=settings.openrouter_api_key,
@@ -114,7 +148,6 @@ agent: Agent[CategorizeDeps, str] = Agent(
     model,
     deps_type=CategorizeDeps,
     retries=3,
-    model_settings={"extra_body": {"reasoning_effort": "medium"}},
 )
 
 
@@ -170,6 +203,8 @@ def test_prompt(ctx: RunContext[CategorizeDeps], prompt: str) -> str:
         ctx: Run context with dependencies.
         prompt: The prompt template with {id} and {description} placeholders.
     """
+    logger.info("[bold magenta]TOOL test_prompt called[/] | args: %.100s", prompt)
+
     if "{id}" not in prompt or "{description}" not in prompt:
         return "ERROR: prompt must contain {id} and {description} placeholders"
 
@@ -199,20 +234,59 @@ def send_prompt(ctx: RunContext[CategorizeDeps], prompt: str) -> str:
         prompt: The prompt template with {id} and {description} placeholders.
     """
     ctx.deps.attempt_count += 1
-    logger.info("[bold cyan]Submitting prompt (attempt #%d): %s[/]", ctx.deps.attempt_count, prompt[:80])
+    logger.info("[bold magenta]TOOL send_prompt called[/] | attempt=#%d | args: %.100s", ctx.deps.attempt_count, prompt)
+
+    if "{id}" not in prompt or "{description}" not in prompt:
+        return "ERROR: prompt must contain {id} and {description} placeholders"
 
     results: list[str] = []
     found_flag: str | None = None
+    total_tokens = 0
+    pass_count = 0
+    fail_count = 0
 
     for item_id, desc in ctx.deps.csv_items:
         expanded = _expand_prompt(prompt, item_id, desc)
-        data = _submit_to_hub(expanded)
+        token_count = _count_tokens(expanded)
+        total_tokens += token_count
+        logger.info(
+            "[cyan]Sending item[/] | id=%s | tokens=%d | prompt=%s",
+            item_id,
+            token_count,
+            expanded,
+        )
+
+        data = _submit_to_hub(expanded, item_id)
+
+        # Break early on hub errors — no point sending more items
+        error_code = data.get("code")
+        if isinstance(error_code, int) and error_code < 0:
+            msg = data.get("message")
+            return (
+                f"ERROR: Hub rejected item {item_id} (code={error_code}, msg={msg})."
+                " Call reset_budget, then revise and retry."
+            )
 
         response_str = str(data)
         flag = extract_flag(response_str)
         if flag:
             found_flag = flag
+
+        # Track pass/fail based on hub response
+        if "error" in response_str.lower() or "incorrect" in response_str.lower():
+            fail_count += 1
+        else:
+            pass_count += 1
+
         results.append(f"  {item_id}: {response_str}")
+
+    logger.info(
+        "[bold cyan]send_prompt summary[/] | items=%d | total_tokens=%d | pass=%d | fail=%d",
+        len(ctx.deps.csv_items),
+        total_tokens,
+        pass_count,
+        fail_count,
+    )
 
     # Save all responses
     artifact = ARTIFACTS / f"response_{ctx.deps.attempt_count}.json"
@@ -231,6 +305,7 @@ def reset_budget(ctx: RunContext[CategorizeDeps]) -> str:
     Args:
         ctx: Run context with dependencies.
     """
+    logger.info("[bold magenta]TOOL reset_budget called[/]")
     _ = ctx.deps  # required by pydantic-ai
     data = _reset_hub_counter()
     return f"Budget reset response: {data}"
@@ -243,6 +318,7 @@ def read_notes(ctx: RunContext[CategorizeDeps]) -> str:
     Args:
         ctx: Run context with dependencies.
     """
+    logger.info("[bold magenta]TOOL read_notes called[/]")
     _ = ctx.deps  # required by pydantic-ai
     notes_path = WORKSPACE / "notes.md"
     if notes_path.exists():
@@ -258,6 +334,7 @@ def write_notes(ctx: RunContext[CategorizeDeps], content: str) -> str:
         ctx: Run context with dependencies.
         content: The notes content to write.
     """
+    logger.info("[bold magenta]TOOL write_notes called[/] | content_len=%d", len(content))
     _ = ctx.deps  # required by pydantic-ai
     notes_path = WORKSPACE / "notes.md"
     notes_path.write_text(content, encoding="utf-8")
