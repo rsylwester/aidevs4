@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     openrouter_api_key: str
     aidevs_key: str
     aidevs_verify_address: str
+    aidevs_hub_url: str
 
     # Langfuse
     langfuse_public_key: str = "pk-lf-local"

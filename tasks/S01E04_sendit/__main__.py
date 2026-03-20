@@ -28,7 +28,7 @@ from settings import settings
 logger = logging.getLogger(__name__)
 
 ARTIFACTS = Path(__file__).parent / ".artifacts"
-DOC_BASE_URL = "https://***REDACTED***/dane/doc/"
+DOC_BASE_URL = f"{settings.aidevs_hub_url}/dane/doc/"
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
 

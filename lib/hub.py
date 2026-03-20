@@ -11,7 +11,7 @@ from settings import settings
 
 logger = logging.getLogger(__name__)
 
-_BASE_DATA_URL = "https://***REDACTED***/data"
+_BASE_DATA_URL = f"{settings.aidevs_hub_url}/data"
 
 
 def submit_answer(task: str, answer: Any) -> dict[str, Any]:

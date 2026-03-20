@@ -76,7 +76,7 @@ def extract_flag(text: str) -> str | None:
 
 def _post_api(client: httpx.Client, payload: dict[str, Any]) -> httpx.Response:
     """Simple POST — does NOT raise on error status codes."""
-    return client.post("https://***REDACTED***/verify", json=payload, timeout=30)
+    return client.post(f"{settings.aidevs_hub_url}/verify", json=payload, timeout=30)
 
 
 def _parse_retry_after(resp: httpx.Response) -> float:
@@ -107,7 +107,7 @@ def fetch_help(client: httpx.Client) -> str:
         "task": "railway",
         "answer": {"action": "help"},
     }
-    resp = client.post("https://***REDACTED***/verify", json=payload, timeout=30)
+    resp = client.post(f"{settings.aidevs_hub_url}/verify", json=payload, timeout=30)
     body = resp.text
     logger.info("[bold cyan]← Help response: HTTP %d | %s[/]", resp.status_code, body)
 

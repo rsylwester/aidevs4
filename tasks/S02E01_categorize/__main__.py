@@ -6,7 +6,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import tiktoken
@@ -27,7 +27,7 @@ WORKSPACE = Path(__file__).parent / ".workspace"
 
 TOKEN_LIMIT = 100
 TASK_NAME = "categorize"
-VERIFY_URL = "https://***REDACTED***/verify"
+VERIFY_URL = f"{settings.aidevs_hub_url}/verify"
 
 # ---------------------------------------------------------------------------
 # Deps
@@ -244,6 +244,10 @@ def send_prompt(ctx: RunContext[CategorizeDeps], prompt: str) -> str:
     total_tokens = 0
     pass_count = 0
     fail_count = 0
+    total_hub_tokens = 0
+    total_cached_tokens = 0
+    total_input_cost = 0.0
+    total_output_cost = 0.0
 
     for item_id, desc in ctx.deps.csv_items:
         expanded = _expand_prompt(prompt, item_id, desc)
@@ -267,6 +271,30 @@ def send_prompt(ctx: RunContext[CategorizeDeps], prompt: str) -> str:
                 " Call reset_budget, then revise and retry."
             )
 
+        debug_raw = data.get("debug")
+        if isinstance(debug_raw, dict):
+            dbg = cast("dict[str, Any]", debug_raw)
+            hub_tokens = int(dbg.get("tokens", 0) or 0)
+            cached = int(dbg.get("cached_tokens", 0) or 0)
+            cost_in = float(dbg.get("input_cost", 0) or 0)
+            cost_out = float(dbg.get("output_cost", 0) or 0)
+            total_hub_tokens += hub_tokens
+            total_cached_tokens += cached
+            total_input_cost += cost_in
+            total_output_cost += cost_out
+            logger.info(
+                "[green]Hub result[/] | id=%s | output=%s | tokens=%d | cached=%d"
+                " | cost_in=%.3f | cost_out=%.3f | balance=%.3f | cache_hit=%.1f%%",
+                item_id,
+                dbg.get("output", "?"),
+                hub_tokens,
+                cached,
+                cost_in,
+                cost_out,
+                float(dbg.get("balance", 0) or 0),
+                float(dbg.get("global_cache_hit_rate", 0) or 0),
+            )
+
         response_str = str(data)
         flag = extract_flag(response_str)
         if flag:
@@ -286,6 +314,16 @@ def send_prompt(ctx: RunContext[CategorizeDeps], prompt: str) -> str:
         total_tokens,
         pass_count,
         fail_count,
+    )
+    logger.info(
+        "[bold cyan]Hub usage summary[/] | items=%d | hub_tokens=%d | cached=%d"
+        " | input_cost=%.3f | output_cost=%.3f | total_cost=%.3f",
+        len(ctx.deps.csv_items),
+        total_hub_tokens,
+        total_cached_tokens,
+        total_input_cost,
+        total_output_cost,
+        total_input_cost + total_output_cost,
     )
 
     # Save all responses
@@ -371,6 +409,17 @@ def run() -> None:
             deps=deps,
         )
 
+        usage = result.usage()
+        logger.info(
+            "[bold cyan]Agent LLM usage[/] | requests=%d | tool_calls=%d | input=%d | output=%d"
+            " | cache_read=%d | cache_write=%d",
+            usage.requests,
+            usage.tool_calls,
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.cache_read_tokens,
+            usage.cache_write_tokens,
+        )
         logger.info("[bold green]Agent result: %s[/]", result.output)
 
         flag = extract_flag(result.output)

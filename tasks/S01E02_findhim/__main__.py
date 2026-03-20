@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 ARTIFACTS = Path(__file__).parent / ".artifacts"
 
-HUB_BASE = "https://***REDACTED***/api"
+HUB_BASE = f"{settings.aidevs_hub_url}/api"
 
 
 # -- Models ------------------------------------------------------------------

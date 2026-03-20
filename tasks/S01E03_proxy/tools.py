@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 
 from settings import settings
 
-_API_URL = "https://***REDACTED***/api/packages"
+_API_URL = f"{settings.aidevs_hub_url}/api/packages"
 
 mcp = FastMCP("packages", port=8001)
 
