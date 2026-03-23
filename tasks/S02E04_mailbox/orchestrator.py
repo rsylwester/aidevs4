@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 import dspy
+import httpx
 
 from lib.hub import submit_answer
 from tasks.S02E04_mailbox.prompts import ORCHESTRATOR_INSTRUCTIONS
@@ -72,9 +73,13 @@ def run_orchestrator(workspace: Path) -> str:
         try:
             hub_result: dict[str, Any] = submit_answer("mailbox", answer)
             response = str(hub_result)
-        except Exception:
+        except httpx.HTTPStatusError as exc:
+            error_body: Any = exc.response.json()
+            logger.warning("[bold red]Hub rejected (HTTP %d):[/] %s", exc.response.status_code, error_body)
+            response = f"REJECTED: {error_body}. Review and fix the values."
+        except Exception as exc:
             logger.exception("[bold red]Hub submission failed[/]")
-            response = "Error submitting answer. Check values and try again."
+            response = f"Error: {exc}"
         logger.info("[bold green]Hub response:[/] %s", response[:300])
         flag = _extract_flag(response)
         if flag:

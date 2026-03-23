@@ -25,9 +25,10 @@ def run() -> None:
     with langfuse_session("S02E04-mailbox") as session_id:
         logger.info("[bold cyan]S02E04-mailbox | session=%s[/]", session_id)
 
+        model = "openai/gpt-4.1-mini"
         cb = LoggingCallback()
         lm = dspy.LM(
-            "openai/gpt-4.1-mini",
+            model,
             api_key=settings.openrouter_api_key,
             api_base="https://openrouter.ai/api/v1",
             cache=False,
@@ -35,7 +36,7 @@ def run() -> None:
         dspy.configure(lm=lm, callbacks=[cb])
 
         result = run_orchestrator(WORKSPACE)
-        cb.log_summary()
+        cb.log_summary(orchestrator_model=model, researcher_model=model)
         logger.info("[bold green]Final result: %s[/]", result[:500])
 
 

@@ -102,5 +102,12 @@ def read_message(message_id: str) -> str:
     ids: list[str] | str = message_id
     if "," in message_id:
         ids = [mid.strip() for mid in message_id.split(",")]
-    data = _post_zmail({"action": "getMessages", "ids": ids}, log_full=True)
+    data = _post_zmail({"action": "getMessages", "ids": ids})
+    # Log just message bodies for readability
+    messages: list[dict[str, Any]] = data.get("messages", [])
+    for msg in messages:
+        sender = msg.get("from", "?")
+        subject = msg.get("subject", "?")
+        body = msg.get("body", msg.get("text", ""))
+        logger.info("[green]Mail from=%s subject=%s[/]\n%s", sender, subject, body)
     return json.dumps(data, indent=2, ensure_ascii=False)
