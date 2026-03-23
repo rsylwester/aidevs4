@@ -1,4 +1,4 @@
-"""Typed wrapper around litellm.completion for pyright strict mode."""
+"""Typed wrapper around litellm.completion with Langfuse integration."""
 
 from __future__ import annotations
 
@@ -11,16 +11,27 @@ from settings import settings
 logger = logging.getLogger(__name__)
 
 # litellm has partially-unknown types in strict mode; this module isolates that boundary.
+_initialized: bool = False
 _completion_fn: Any = None
 _cost_fn: Any = None
 
 
 def _ensure_litellm() -> None:
-    global _completion_fn, _cost_fn
-    if _completion_fn is None:
-        _mod: Any = __import__("litellm")
-        _completion_fn = _mod.completion
-        _cost_fn = _mod.completion_cost
+    global _initialized, _completion_fn, _cost_fn
+    if _initialized:
+        return
+
+    _mod: Any = __import__("litellm")
+    _completion_fn = _mod.completion
+    _cost_fn = _mod.completion_cost
+
+    # Enable Langfuse tracing via OpenTelemetry (compatible with Langfuse v4).
+    # Env vars (LANGFUSE_*) are set by lib.tracing._ensure_langfuse_env()
+    # which runs inside langfuse_session() before any LLM calls happen.
+    _mod.success_callback = ["langfuse_otel"]
+    _mod.failure_callback = ["langfuse_otel"]
+
+    _initialized = True
 
 
 @dataclass
@@ -66,6 +77,7 @@ def chat(
         "model": model,
         "messages": messages,
         "api_key": settings.openrouter_api_key,
+        "metadata": {"generation_name": label},
     }
     if tools is not None:
         kwargs["tools"] = tools
