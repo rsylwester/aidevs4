@@ -1,0 +1,53 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "execute_shell_command",
+      "description": "Execute a command on the remote Linux VM via the shell API. Returns the command output. Only use commands listed in the available commands section of your briefing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cmd": {
+            "type": "string",
+            "description": "The shell command to execute on the VM."
+          }
+        },
+        "required": ["cmd"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "sleep_seconds",
+      "description": "Pause execution for a given number of seconds (max 180). Use this when you receive a ban response and need to wait before retrying.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "integer",
+            "description": "Number of seconds to sleep (capped at 180)."
+          }
+        },
+        "required": ["seconds"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "submit_answer",
+      "description": "Submit the ECCS-formatted confirmation code extracted from the firmware output to the hub for verification. Only call this when you have the actual confirmation code.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "confirmation_code": {
+            "type": "string",
+            "description": "The ECCS confirmation code output by cooler.bin."
+          }
+        },
+        "required": ["confirmation_code"]
+      }
+    }
+  }
+]
