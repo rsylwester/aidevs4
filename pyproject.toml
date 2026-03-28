@@ -74,6 +74,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "ARG", "ANN"]
 "settings.py" = ["S105"]  # default values for local dev are not real secrets
+"tasks/S03E04_negotiations/server.py" = ["S608"]  # dynamic SQL uses parameterized placeholders only
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
