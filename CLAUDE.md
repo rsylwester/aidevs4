@@ -48,6 +48,12 @@
 - **Long-lived servers** (FastAPI, etc.): use `langfuse.propagate_attributes(session_id=..., trace_name=...)` at request scope.
 - `get_llm()` auto-attaches the Langfuse callback handler; trace attributes come from the surrounding `propagate_attributes` context, not from `get_llm()` args.
 
+## Secrets
+
+- Secrets are stored in `.env.sops` (sops-encrypted dotenv format).
+- To regenerate `.env`: `sops --input-type dotenv --output-type dotenv -d .env.sops > .env`
+- Never commit `.env` — only `.env.sops` is tracked in git.
+
 ## Project structure
 
 ```

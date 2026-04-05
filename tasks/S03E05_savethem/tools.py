@@ -1,4 +1,4 @@
-"""S03E05 tools — Hub API wrappers, A* pathfinder, and tool schemas."""
+"""S03E05 tools — Hub API wrapper, grid parser, and parameterized A* pathfinder."""
 
 from __future__ import annotations
 
@@ -28,9 +28,8 @@ def call_hub_api(endpoint: str, query: str) -> str:
     logger.info("[yellow]>> hub API %s query=%r[/]", endpoint, query)
     try:
         resp = httpx.post(url, json=payload, timeout=30)
-        resp.raise_for_status()
         data: Any = resp.json()
-        logger.info("[cyan]<< hub API %s: %s[/]", endpoint, str(data)[:300])
+        logger.info("[cyan]<< hub API %s (HTTP %d): %s[/]", endpoint, resp.status_code, str(data)[:300])
         return json.dumps(data, ensure_ascii=False)
     except httpx.HTTPError as exc:
         msg = f"Hub API error for {endpoint}: {exc}"
@@ -44,12 +43,11 @@ def call_hub_api(endpoint: str, query: str) -> str:
 
 
 def parse_grid(raw: str) -> list[list[str]]:
-    """Parse a hub map response into a 10x10 grid of single characters.
+    """Parse a hub map response into a grid of single characters.
 
     Handles both plain-text (newline-separated rows) and JSON array formats.
     Normalizes S/G to '.' (passable terrain).
     """
-    # Try JSON array first
     try:
         parsed = json.loads(raw)
     except Exception:
@@ -58,7 +56,6 @@ def parse_grid(raw: str) -> list[list[str]]:
     if isinstance(parsed, list):
         return _normalize_grid(_json_to_grid(parsed))
 
-    # Plain text: split by newlines
     lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
     rows = [list(line) for line in lines]
     return _normalize_grid(rows)
@@ -81,18 +78,30 @@ def _normalize_grid(grid: list[list[str]]) -> list[list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# A* pathfinder
+# Dynamic vehicle / terrain configuration
 # ---------------------------------------------------------------------------
 
-_VEHICLE_COSTS: dict[str, tuple[float, float]] = {
-    "rocket": (1.0, 0.1),
-    "car": (0.7, 1.0),
-    "horse": (0.0, 1.6),
-    "walk": (0.0, 2.5),
-}
 
-_POWERED_VEHICLES: frozenset[str] = frozenset({"rocket", "car"})
-_WATER_BLOCKED: frozenset[str] = frozenset({"rocket", "car"})
+@dataclass(frozen=True)
+class VehicleConfig:
+    """Per-move costs for a vehicle, discovered from the wehicles API."""
+
+    name: str
+    fuel_cost: float
+    food_cost: float
+
+
+@dataclass(frozen=True)
+class TerrainRules:
+    """Movement rules per terrain type, discovered from API."""
+
+    water_blocked: frozenset[str]
+    tree_fuel_penalty: dict[str, float]
+
+
+# ---------------------------------------------------------------------------
+# A* pathfinder (parameterized — no hardcoded vehicle/terrain data)
+# ---------------------------------------------------------------------------
 
 _DIRECTIONS: list[tuple[str, int, int]] = [
     ("up", -1, 0),
@@ -142,7 +151,6 @@ def _add_to_frontier(
     if key not in frontier:
         frontier[key] = [(fuel, food)]
         return
-    # Remove points dominated by the new one
     frontier[key] = [(f, d) for f, d in frontier[key] if not (fuel >= f - _EPS and food >= d - _EPS)]
     frontier[key].append((fuel, food))
 
@@ -154,6 +162,8 @@ def _astar(
     vehicle: str,
     fuel: float,
     food: float,
+    vehicles: dict[str, VehicleConfig],
+    terrain: TerrainRules,
 ) -> dict[str, Any]:
     """Run A* search for a single vehicle configuration."""
     rows = len(grid)
@@ -168,10 +178,11 @@ def _astar(
     heap: list[_Node] = [start_node]
     _add_to_frontier(frontier, (sr, sc, vehicle), fuel, food)
 
+    walk_config = vehicles.get("walk")
+
     while heap:
         node = heapq.heappop(heap)
 
-        # Goal check
         if node.row == gr and node.col == gc:
             return {
                 "success": True,
@@ -182,33 +193,29 @@ def _astar(
                 "moves": len([p for p in node.path if p != "dismount"]),
             }
 
-        # Skip if this state is now dominated
         key = (node.row, node.col, node.mode)
         if _is_dominated(frontier, key, node.fuel - _EPS * 2, node.food - _EPS * 2):
-            # Only skip if strictly dominated (our resources are less than stored)
-            pass  # Still process — Pareto check at insertion handles pruning
+            pass  # Pareto check at insertion handles pruning
 
-        # Generate neighbors: 4 directions + dismount
         neighbors: list[tuple[str, int, int, str, float, float]] = []
 
-        # Cardinal directions
         for direction, dr, dc in _DIRECTIONS:
             nr, nc = node.row + dr, node.col + dc
             if not (0 <= nr < rows and 0 <= nc < cols):
                 continue
             tile = grid[nr][nc]
 
-            # Rock blocks all
             if tile == "R":
                 continue
-            # Water blocks powered vehicles
-            if tile == "W" and node.mode in _WATER_BLOCKED:
+            if tile == "W" and node.mode in terrain.water_blocked:
                 continue
 
-            fuel_cost, food_cost = _VEHICLE_COSTS[node.mode]
-            # Tree penalty for powered vehicles
-            if tile == "T" and node.mode in _POWERED_VEHICLES:
-                fuel_cost += 0.2
+            vc = vehicles[node.mode]
+            fuel_cost = vc.fuel_cost
+            food_cost = vc.food_cost
+
+            if tile == "T" and node.mode in terrain.tree_fuel_penalty:
+                fuel_cost += terrain.tree_fuel_penalty[node.mode]
 
             new_fuel = node.fuel - fuel_cost
             new_food = node.food - food_cost
@@ -217,8 +224,7 @@ def _astar(
 
             neighbors.append((direction, nr, nc, node.mode, new_fuel, new_food))
 
-        # Dismount: switch to walk mode (zero cost, same position)
-        if node.mode != "walk":
+        if node.mode != "walk" and walk_config is not None:
             neighbors.append(("dismount", node.row, node.col, "walk", node.fuel, node.food))
 
         for action, nr, nc, mode, nfuel, nfood in neighbors:
@@ -252,15 +258,17 @@ def compute_optimal_path(
     vehicle: str,
     fuel: float,
     food: float,
-) -> str:
-    """Compute optimal route using A*. Returns JSON result string.
+    vehicles: dict[str, VehicleConfig],
+    terrain: TerrainRules,
+) -> dict[str, Any]:
+    """Compute optimal route using A*. Returns result dict.
 
     Set vehicle to 'auto' to try all vehicles and return the best result.
     """
     if vehicle == "auto":
         best: dict[str, Any] | None = None
-        for v in _VEHICLE_COSTS:
-            result = _astar(grid, start, goal, v, fuel, food)
+        for v in vehicles:
+            result = _astar(grid, start, goal, v, fuel, food, vehicles, terrain)
             if result["success"] and (
                 best is None
                 or result["moves"] < best["moves"]
@@ -271,16 +279,13 @@ def compute_optimal_path(
                 )
             ):
                 best = result
-        if best:
-            return json.dumps(best, ensure_ascii=False)
-        return json.dumps({"success": False, "reason": "No vehicle can reach the goal with available resources"})
+        return best or {"success": False, "reason": "No vehicle can reach the goal with available resources"}
 
-    result = _astar(grid, start, goal, vehicle, fuel, food)
-    return json.dumps(result, ensure_ascii=False)
+    return _astar(grid, start, goal, vehicle, fuel, food, vehicles, terrain)
 
 
 # ---------------------------------------------------------------------------
-# Tool schemas (OpenAI function-calling format)
+# Tool schema for LLM agent (only call_hub_api — pathfinder is not an LLM tool)
 # ---------------------------------------------------------------------------
 
 CALL_HUB_API_SCHEMA: dict[str, Any] = {
@@ -288,11 +293,8 @@ CALL_HUB_API_SCHEMA: dict[str, Any] = {
     "function": {
         "name": "call_hub_api",
         "description": (
-            "Call a hub API endpoint. Known endpoints: "
-            "toolsearch (discover tools by query), "
-            "maps (get 10x10 city grid map), "
-            "wehicles (get vehicle stats — note the spelling), "
-            "books (search archive notes). "
+            "Call a hub API endpoint. Use the 'toolsearch' endpoint first to discover "
+            "available tools and their descriptions. All endpoints accept a 'query' parameter. "
             "Send a natural language or keyword query."
         ),
         "parameters": {
@@ -300,7 +302,7 @@ CALL_HUB_API_SCHEMA: dict[str, Any] = {
             "properties": {
                 "endpoint": {
                     "type": "string",
-                    "description": "API endpoint name",
+                    "description": "API endpoint name (use 'toolsearch' to discover available endpoints)",
                 },
                 "query": {
                     "type": "string",
@@ -310,44 +312,4 @@ CALL_HUB_API_SCHEMA: dict[str, Any] = {
             "required": ["endpoint", "query"],
         },
     },
-}
-
-COMPUTE_PATH_SCHEMA: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "compute_optimal_path",
-        "description": (
-            "Compute optimal route on a 10x10 grid using A* pathfinding. "
-            "Accounts for fuel, food, vehicle constraints, terrain penalties, "
-            "water/rock blocking, and dismount option. "
-            "Set vehicle to 'auto' to try all vehicles and get the best route."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "grid_json": {
-                    "type": "string",
-                    "description": 'JSON 2D array of the grid, e.g. [[".","R",...],...]',
-                },
-                "start_row": {"type": "integer", "description": "Start row (0-indexed)"},
-                "start_col": {"type": "integer", "description": "Start column (0-indexed)"},
-                "goal_row": {"type": "integer", "description": "Goal row (0-indexed)"},
-                "goal_col": {"type": "integer", "description": "Goal column (0-indexed)"},
-                "vehicle": {
-                    "type": "string",
-                    "enum": ["rocket", "car", "horse", "walk", "auto"],
-                    "description": "Vehicle to use. 'auto' tries all and returns the best.",
-                },
-                "fuel": {"type": "number", "description": "Available fuel (default 10)"},
-                "food": {"type": "number", "description": "Available food (default 10)"},
-            },
-            "required": ["grid_json", "start_row", "start_col", "goal_row", "goal_col", "vehicle", "fuel", "food"],
-        },
-    },
-}
-
-# Mapping of tool name → schema for easy lookup
-TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
-    "call_hub_api": CALL_HUB_API_SCHEMA,
-    "compute_optimal_path": COMPUTE_PATH_SCHEMA,
 }
