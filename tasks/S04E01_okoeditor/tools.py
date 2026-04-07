@@ -71,32 +71,20 @@ def _get_page() -> Page:
     _browser = pw.chromium.launch(headless=True)
     _page = _browser.new_page()
 
-    # Login
+    # Login — fill visible form fields dynamically
     _page.goto(f"{_OKO_BASE}/")
     _page.wait_for_load_state("networkidle")
-    _page.fill('input[type="text"], input[name="username"], input[name="login"]', _OKO_USERNAME)
-    _page.fill('input[type="password"]', _OKO_PASSWORD)
-    # Fill API key if there's a third input
-    api_key_inputs = _page.locator("input").all()
-    for inp in api_key_inputs:
-        input_type = inp.get_attribute("type") or ""
-        if input_type not in ("text", "password", "submit", "hidden"):
-            continue
-        val = inp.input_value()
-        if val == "":
-            name = inp.get_attribute("name") or inp.get_attribute("placeholder") or ""
-            if "key" in name.lower() or "klucz" in name.lower() or "api" in name.lower():
-                inp.fill(settings.aidevs_key)
-                break
-    # If there's a third empty text-like input, fill it with the API key
-    text_inputs = _page.locator('input[type="text"], input:not([type])').all()
-    if len(text_inputs) >= 2:
-        for inp in text_inputs[1:]:
-            if inp.input_value() == "" and inp != _page.locator('input[type="password"]').first:
-                inp.fill(settings.aidevs_key)
-                break
 
-    _page.locator('button[type="submit"], button:has-text("Zaloguj"), input[type="submit"]').first.click()
+    visible_inputs = [
+        inp
+        for inp in _page.locator("input").all()
+        if inp.is_visible() and (inp.get_attribute("type") or "text") not in ("submit", "hidden")
+    ]
+    credentials = [_OKO_USERNAME, _OKO_PASSWORD, settings.aidevs_key]
+    for inp, value in zip(visible_inputs, credentials, strict=False):
+        inp.fill(value)
+
+    _page.locator("button, input[type='submit']").first.click()
     _page.wait_for_load_state("networkidle")
     logger.info("[green]Playwright: logged into OKO panel[/]")
     return _page
@@ -115,20 +103,13 @@ def cleanup_browser() -> None:
 # Page content extraction — strip nav boilerplate, return main content only
 # ---------------------------------------------------------------------------
 
-_NAV_PATTERNS = re.compile(
-    r"(system operatora|Centrum operacyjne|Aktywna sesja|API key|Menu operatora"
-    r"|Incydenty|Notatki|Zadania|Użytkownicy|Wyloguj|OKO\b)",
-    re.IGNORECASE,
-)
-
 
 def _extract_main_content(html: str) -> str:
     """Convert HTML to markdown, strip scripts/styles/nav boilerplate."""
     cleaned = re.sub(r"<(script|style|nav|header)[^>]*>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
     md: str = markdownify(cleaned, strip=["img"])
     lines = [line.rstrip() for line in md.splitlines()]
-    # Keep only non-empty lines that aren't repeated nav boilerplate
-    content_lines = [line for line in lines if line.strip() and not _NAV_PATTERNS.fullmatch(line.strip())]
+    content_lines = [line for line in lines if line.strip()]
     return "\n".join(content_lines)
 
 
@@ -247,15 +228,14 @@ GET_PAGE_TEXT_SCHEMA: dict[str, Any] = {
         "description": (
             "Navigate to an OKO web page and return its main text content as markdown. "
             "Strips navigation boilerplate. Use this to read full page content including detail pages. "
-            f"Base URL: {_OKO_BASE}. Sections: / (incydenty), /notatki, /zadania. "
-            "Detail pages: /incydenty/<id>, /notatki/<id>, /zadania/<id>."
+            f"Base URL: {_OKO_BASE}."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": f"Full URL (e.g. '{_OKO_BASE}/notatki' or '{_OKO_BASE}/notatki/<id>')",
+                    "description": f"Full URL to navigate to (e.g. '{_OKO_BASE}/<section>')",
                 },
             },
             "required": ["url"],
@@ -277,7 +257,7 @@ SEARCH_WEB_CONTENT_SCHEMA: dict[str, Any] = {
             "properties": {
                 "url": {
                     "type": "string",
-                    "description": f"Full URL to search (e.g. '{_OKO_BASE}/notatki')",
+                    "description": f"Full URL to search (e.g. '{_OKO_BASE}/<section>')",
                 },
                 "query": {
                     "type": "string",
