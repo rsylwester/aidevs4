@@ -55,9 +55,7 @@ Step 2: fire_async_gets()
 Step 3: poll_results(expected=3, timeout_seconds=25)
 Step 4: analyze_data()
 Step 5: generate_codes_and_submit()
-Step 6: call_api(action="get", params={{"param": "turbinecheck"}})
-Step 7: poll_results(expected=1)
-Step 8: call_api(action="done")
+Step 6: call_api(action="done")
 
 ## Rules
 - NEVER give up. If a step fails, retry.
@@ -130,8 +128,7 @@ def run_agent(help_data: dict[str, Any], docs_data: dict[str, Any]) -> str:
             "role": "user",
             "content": (
                 "Execute: start -> fire_async_gets -> poll(3) -> "
-                "analyze_data -> generate_codes_and_submit -> "
-                "get turbinecheck -> poll(1) -> done. GO!"
+                "analyze_data -> generate_codes_and_submit -> done. GO!"
             ),
         },
     ]
@@ -170,8 +167,7 @@ def run_agent(help_data: dict[str, Any], docs_data: dict[str, Any]) -> str:
 
     # Fallback: if agent stopped before calling done, finish the remaining steps
     if not done_called and (time.monotonic() - t0) < _SESSION_TIMEOUT:
-        logger.info("[bold yellow]Agent stopped early — running fallback (poll turbinecheck + done)[/]")
-        poll_results(expected=1, timeout_seconds=10)
+        logger.info("[bold yellow]Agent stopped early — running fallback (done)[/]")
         last_response = call_api("done")
 
     elapsed = time.monotonic() - t0

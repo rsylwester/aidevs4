@@ -179,9 +179,6 @@ def analyze_data() -> str:
 
     # Parse power deficit
     deficit_str = str(powerplant.get("powerDeficitKw", "0"))
-    # Handle range like "3-4"
-    deficit_parts = deficit_str.split("-")
-    max_deficit = float(deficit_parts[-1])
 
     # Yield lookup: wind speed -> yield fraction
     yield_table: list[dict[str, Any]] = docs.get("windPowerYieldPercent", [])
@@ -244,14 +241,9 @@ def analyze_data() -> str:
     # Sort production candidates by highest estimated power
     production_candidates.sort(key=lambda x: float(x.get("estimatedPowerKw", 0)), reverse=True)
 
-    # Select enough production hours to cover deficit
-    selected_production: list[dict[str, Any]] = []
-    total_power = 0.0
-    for cand in production_candidates:
-        selected_production.append(cand)
-        total_power += float(cand.get("estimatedPowerKw", 0))
-        if total_power >= max_deficit:
-            break
+    # Select the single best production hour (task asks for one "punkt")
+    selected_production: list[dict[str, Any]] = production_candidates[:1]
+    total_power = float(selected_production[0].get("estimatedPowerKw", 0)) if selected_production else 0.0
 
     # Build all config points (for unlock code generation — no unlockCode yet)
     _extract_keys = ("startDate", "startHour", "windMs", "pitchAngle")
