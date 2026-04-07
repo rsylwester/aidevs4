@@ -21,7 +21,7 @@ from settings import settings
 
 logger = logging.getLogger(__name__)
 
-SHELL_API_URL = "***REMOVED***/api/shell"
+SHELL_API_URL = f"{settings.aidevs_hub_url}/api/shell"
 WORKSPACE = Path(__file__).parent / ".workspace"
 
 _FORBIDDEN_PREFIXES = ("/etc", "/root", "/proc")

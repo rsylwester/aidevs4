@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-DRONE_HTML_URL = "***REMOVED***/dane/drone.html"
+DRONE_HTML_URL = f"{settings.aidevs_hub_url}/dane/drone.html"
 DRONE_MAP_URL = f"{settings.aidevs_hub_url}/data/{settings.aidevs_key}/drone.png"
 
 

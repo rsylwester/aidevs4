@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 WORKSPACE = Path(__file__).parent / ".workspace"
 
-CSV_BASE_URL = "***REMOVED***/dane/s03e04_csv"
+CSV_BASE_URL = f"{settings.aidevs_hub_url}/dane/s03e04_csv"
 CSV_FILES = ("cities.csv", "items.csv", "connections.csv")
 
 
