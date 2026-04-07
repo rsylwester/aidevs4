@@ -16,7 +16,7 @@ from settings import settings
 logger = logging.getLogger(__name__)
 
 _VERIFY_URL = settings.aidevs_verify_address
-_OKO_BASE = "***REMOVED***"
+_OKO_BASE = settings.oko_base_url
 
 _OKO_USERNAME = "Zofia"
 _OKO_PASSWORD = "Zofia2026!"  # noqa: S105 — provided in task description, not a real secret

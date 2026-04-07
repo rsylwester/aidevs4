@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     aidevs_key: str
     aidevs_verify_address: str
     aidevs_hub_url: str
+    oko_base_url: str = ""
 
     # Langfuse
     langfuse_public_key: str = "pk-lf-local"
