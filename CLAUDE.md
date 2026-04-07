@@ -29,10 +29,10 @@
 - **Pythonic idioms** — comprehensions/generators over manual loops, EAFP over LBYL, duck typing, unpacking, `enumerate()`/`zip()`/`any()`/`all()`, context managers, `sum()`/`min()`/`max()` with generators.
 - **Keep it concise** — favor one-expression solutions when readable; avoid unnecessary intermediate variables, `range(len(...))` indexing, or `isinstance()` checks when duck typing suffices.
 
-## Artifacts
+## Workspace
 
-- **Required**: all task artifacts (downloaded data, API responses, generated files) must be saved to a `.artifacts/` subdirectory within the task folder (e.g. `tasks/S01E01_people/.artifacts/people.csv`).
-- `.artifacts/` is gitignored — never commit data files.
+- **Required**: all task artifacts (downloaded data, API responses, generated files) must be saved to a `.workspace/` subdirectory within the task folder (e.g. `tasks/S01E01_people/.workspace/people.csv`).
+- `.workspace/` is gitignored — never commit data files.
 
 ## LLM conventions
 
