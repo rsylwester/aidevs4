@@ -127,8 +127,7 @@ def run_agent(help_data: dict[str, Any], docs_data: dict[str, Any]) -> str:
         {
             "role": "user",
             "content": (
-                "Execute: start -> fire_async_gets -> poll(3) -> "
-                "analyze_data -> generate_codes_and_submit -> done. GO!"
+                "Execute: start -> fire_async_gets -> poll(3) -> analyze_data -> generate_codes_and_submit -> done. GO!"
             ),
         },
     ]
