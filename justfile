@@ -51,6 +51,14 @@ up:
 down:
     docker compose down
 
+# Bring up Daytona self-hosted (for S04E04_filesystem sandbox)
+daytona-up:
+    uv run python -c "from tasks.S04E04_filesystem.sandbox import NotesSandbox; NotesSandbox.ensure_daytona_running()"
+
+# Stop Daytona self-hosted stack
+daytona-down:
+    docker compose -f ~/.local/share/daytona/docker/docker-compose.yaml down
+
 # Remove a dependency
 remove *pkgs:
     uv remove {{pkgs}}

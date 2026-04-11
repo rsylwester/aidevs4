@@ -15,5 +15,9 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = "sk-lf-local"
     langfuse_base_url: str = "http://localhost:3000"
 
+    # Daytona (self-hosted OSS, remapped to 13000 to avoid Langfuse port conflict)
+    daytona_api_url: str = "http://localhost:13000/api"
+    daytona_api_key: str = ""
+
 
 settings: Settings = Settings.model_validate({})
