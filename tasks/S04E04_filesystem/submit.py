@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -33,56 +33,6 @@ def reset_filesystem() -> dict[str, Any]:
     body = submit_answer(_TASK_NAME, {"action": "reset"})
     logger.info("[dim]Reset response: %s[/]", body)
     return body
-
-
-def _list_dir(path: str) -> list[dict[str, Any]]:
-    """Call `{action: listFiles, path: ...}` and return the raw entries list."""
-    body = submit_answer(_TASK_NAME, {"action": "listFiles", "path": path})
-    raw: object = body.get("entries")
-    if not isinstance(raw, list):
-        return []
-    items: list[object] = cast("list[object]", raw)
-    return [cast("dict[str, Any]", item) for item in items if isinstance(item, dict)]
-
-
-def fetch_hub_tree(root: str = "/", max_depth: int = 3) -> dict[str, Any]:
-    """Walk the Centrala virtual filesystem with listFiles and build a tree dict.
-
-    The hub exposes no read-file action, so we only recover names/sizes/timestamps
-    per entry. Directories are distinguished from files by whether they have a
-    `size` field (files) or not; if the hub uses a different marker we fall back
-    to probing each entry with another listFiles call.
-    """
-    def walk(current: str, depth: int) -> dict[str, Any]:
-        node: dict[str, Any] = {"path": current, "type": "directory", "children": []}
-        if depth <= 0:
-            return node
-        try:
-            entries = _list_dir(current)
-        except Exception as exc:
-            node["error"] = str(exc)
-            return node
-        for e in entries:
-            name = e.get("name")
-            if not isinstance(name, str):
-                continue
-            child_path = f"{current.rstrip('/')}/{name}"
-            # Prefer explicit type field if present; otherwise treat entries with
-            # a numeric `size` as files and everything else as a directory.
-            etype = e.get("type")
-            if etype == "file":
-                is_file = True
-            elif etype == "directory":
-                is_file = False
-            else:
-                is_file = isinstance(e.get("size"), int | float)
-            if is_file:
-                node["children"].append({"path": child_path, "type": "file", **e})
-            else:
-                node["children"].append(walk(child_path, depth - 1))
-        return node
-
-    return walk(root, max_depth)
 
 
 def build_batch(plan: Plan) -> list[dict[str, Any]]:

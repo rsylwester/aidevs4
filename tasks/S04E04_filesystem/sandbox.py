@@ -45,10 +45,6 @@ logger = logging.getLogger(__name__)
 _SANDBOX_IMAGE = "python:3.12-slim"
 _NOTES_MOUNT = "/notes"
 _MAX_RESULT_BYTES = 8000
-# Extra apt packages installed into the sandbox at startup so the agent has a
-# useful shell (the base slim image ships almost nothing beyond Python + coreutils).
-_SANDBOX_APT_PACKAGES = ("curl", "ca-certificates", "jq", "ripgrep", "file", "less")
-_TOOL_INSTALL_TIMEOUT_S = 180
 _DAYTONA_REPO_URL = "https://github.com/daytonaio/daytona"
 _DAYTONA_REPO_DIR = Path.home() / ".local" / "share" / "daytona"
 _DAYTONA_COMPOSE_REL = Path("docker") / "docker-compose.yaml"
@@ -99,7 +95,6 @@ class NotesSandbox:
             ),
         )
         self._init_log()
-        self._install_tools()
         self._prepare_notes_dir()
         self._upload_notes()
         logger.info("[bold green]Sandbox ready — notes uploaded to %s[/]", _NOTES_MOUNT)
@@ -220,33 +215,6 @@ class NotesSandbox:
             check=True,
             cwd=_DAYTONA_REPO_DIR,
         )
-
-    # ------------------------------------------------------------- tool install
-
-    def _install_tools(self) -> None:
-        """Install a small set of useful CLI tools into the sandbox.
-
-        Base image is ``python:3.12-slim`` which has almost nothing beyond
-        Python and coreutils. We install curl/jq/ripgrep/etc so the agent's
-        bash shell is actually useful.
-        """
-        sandbox = self._require_sandbox()
-        packages = " ".join(_SANDBOX_APT_PACKAGES)
-        cmd = (
-            "set -e; export DEBIAN_FRONTEND=noninteractive; "
-            "apt-get update -qq && "
-            f"apt-get install -y --no-install-recommends -qq {packages} && "
-            "rm -rf /var/lib/apt/lists/*"
-        )
-        logger.info("[cyan]Installing sandbox tools: %s[/]", packages)
-        response: Any = sandbox.process.exec(cmd, timeout=_TOOL_INSTALL_TIMEOUT_S)
-        exit_code: int = int(getattr(response, "exit_code", -1))
-        if exit_code != 0:
-            tail: str = (getattr(response, "result", "") or "")[-500:]
-            msg = f"Failed to install sandbox tools (exit={exit_code}): {tail}"
-            raise SandboxError(msg)
-        logger.info("[green]Sandbox tools installed[/]")
-        self._append_log("sandbox tool install", f"packages: {packages}\nexit=0")
 
     # --------------------------------------------------------------- notes upload
 

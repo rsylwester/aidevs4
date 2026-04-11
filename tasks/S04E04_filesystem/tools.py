@@ -190,24 +190,4 @@ FINALIZE_SCHEMA: dict[str, Any] = {
 }
 
 
-VIEW_HUB_TREE_SCHEMA: dict[str, Any] = {
-    "type": "function",
-    "function": {
-        "name": "view_hub_tree",
-        "description": (
-            "Inspect the CURRENT state of the Centrala virtual filesystem (what you have "
-            "uploaded so far, if anything). Returns a recursive tree of directories and "
-            "files with names, sizes, and creation timestamps. The hub does NOT expose file "
-            "contents, so you will only see filenames — not what's inside. Useful to "
-            "verify after a failed finalize that your cities/people/goods files landed "
-            "with the exact names you intended, and that none are missing."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {},
-        },
-    },
-}
-
-
-ALL_TOOL_SCHEMAS: list[dict[str, Any]] = [RUN_BASH_SCHEMA, VIEW_HUB_TREE_SCHEMA, FINALIZE_SCHEMA]
+ALL_TOOL_SCHEMAS: list[dict[str, Any]] = [RUN_BASH_SCHEMA, FINALIZE_SCHEMA]

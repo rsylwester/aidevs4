@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, Field, ValidationError
 
 from lib.llm import get_llm
-from tasks.S04E04_filesystem.submit import fetch_hub_tree, prefetch_help, reset_filesystem, submit_plan
+from tasks.S04E04_filesystem.submit import prefetch_help, reset_filesystem, submit_plan
 from tasks.S04E04_filesystem.tools import ALL_TOOL_SCHEMAS, Plan
 
 if TYPE_CHECKING:
@@ -327,9 +327,6 @@ def run_agent(sandbox: NotesSandbox, workspace: Path) -> dict[str, Any]:
             done_body: dict[str, Any] | None = None
             if tc.name == "run_bash":
                 result_str = _dispatch_run_bash(sandbox, tc.args)
-            elif tc.name == "view_hub_tree":
-                tree = fetch_hub_tree()
-                result_str = json.dumps(tree, ensure_ascii=False, default=str)
             elif tc.name == "finalize":
                 done_body, result_str = _dispatch_finalize(tc.args, workspace)
             else:
